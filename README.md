@@ -5,43 +5,7 @@ MSc Advanced Computer Science Research Project Repository *60 Credits
 Currently awaiting a response... 
 
 # Shortlist (supervisor, discription and referenced links)  - no particular order other than first - 
-[1]
-Zeyu Fu	
-Real-Time Audio-Video Lip Synchronization	
-https://github.com/TMElyralab/MuseTalk	
-MSc Advanced Computer Science
-**Required Resources** 
-https://github.com/MRzzm/HDTF
 
-[2]
-Zeyu Fu
-Multi-modal AI for harmhul video localisation
-The goal is to evaluate state-of-the-art multi-modal deep learning or Large Multimodal Models for localising harmful content from social media videos (text-image-audio). 
-MSc Advanced Computer Science
-**Required Resources** 
-https://github.com/hate-alert/HateMM 
-https://github.com/social-ai-studio/multihateclip	
-
-[3] 
-Zeyu Fu
-Advancing Semi-Supervised Medical Video Segmentation via Large Foundation Models	
-https://github.com/jfzhuang/TDC 
-https://github.com/JuzhengMiao/CPC-SAM
-https://github.com/WUTCM-Lab/Shape-Prior-Semi-Seg
-MSc Advanced Computer Science
-
-[4]
-Zeyu Fu	
-Multimodal fake news detection on short video platforms	
-The goal is to evaluate state-of-the-art multi-modal (text-image) deep learning or Large Multimodal Models for fake news detection short video platforms. 
-https://github.com/ICTMCG/FakeSV 
-https://github.com/ICTMCG/FakingRecipe	
-MSc Advanced Computer Science
-**Required Resources** 
-https://github.com/ICTMCG/FakeSV 
-https://github.com/ICTMCG/FakingRecipe
-
-[5]
 Milto Miltiadou	
 Change Detection for protecting UNESCO World Heritage	
 
@@ -53,3 +17,5 @@ MSc Advanced Computer Science
 The project is based on open data i.e., it does not requires access to particular resources. 	
 This project is in collaboration with Dr Athos Agapiou from Cyprus University of Technology, Deputy Director of UNESCO Chair on Digital Cultural Heritage.
 
+Initial Contact 15/01/2025 (Wed) - email communication expressing interest 
+Initial Meeting to Discuss Project 16/01/2025 @16:00 (Thurs) - tomorrow // later 
