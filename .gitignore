@@ -1,2 +1,7 @@
 
 whs.xml
+*.dbf
+*.cpg
+*.shp
+*.prj
+*.shx
