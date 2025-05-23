@@ -5,3 +5,4 @@ whs.xml
 *.shp
 *.prj
 *.shx
+/PlotToSat
