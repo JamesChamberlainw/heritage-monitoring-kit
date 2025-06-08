@@ -58,22 +58,26 @@ class tile():
         lon_max = ee.Number(ur.get(0))
         lat_max = ee.Number(ur.get(1))
 
-        tile_deg = ee.Number(tile_size_m).divide(111320)  # rough degrees per meter at equator
+        lat = lat_min.add(lat_max).divide(2)
+        lat_rad = lat.multiply(math.pi / 180)
+
+        tile_deg_y = ee.Number(tile_size_m).divide(110574)
+        tile_deg_x = ee.Number(tile_size_m).divide(111320).divide(lat_rad.cos()) 
 
         x_range = lon_max.subtract(lon_min)
         y_range = lat_max.subtract(lat_min)
 
-        num_tiles_x = x_range.divide(tile_deg).ceil().toInt()
-        num_tiles_y = y_range.divide(tile_deg).ceil().toInt()
+        num_tiles_x = x_range.divide(tile_deg_x).ceil().toInt()
+        num_tiles_y = y_range.divide(tile_deg_y).ceil().toInt()
 
         def make_tile(i, j):
             i = ee.Number(i)
             j = ee.Number(j)
 
-            x_min = lon_min.add(i.multiply(tile_deg))
-            y_min = lat_min.add(j.multiply(tile_deg))
-            x_max = x_min.add(tile_deg)
-            y_max = y_min.add(tile_deg)
+            x_min = lon_min.add(i.multiply(tile_deg_x))
+            y_min = lat_min.add(j.multiply(tile_deg_y))
+            x_max = x_min.add(tile_deg_x)
+            y_max = y_min.add(tile_deg_y)
 
             geom = ee.Geometry.Polygon([[
                 [x_min, y_min], [x_max, y_min], [x_max, y_max], [x_min, y_max], [x_min, y_min]
@@ -89,6 +93,7 @@ class tile():
         ).flatten()
 
         return ee.FeatureCollection(tiles)
+
 
 
     def net(self, sub_region, collection, band, tile_size_m=50, name_tile_fn=name_tile, geometryType='polygon', vectoriser=None):
