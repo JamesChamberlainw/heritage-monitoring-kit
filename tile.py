@@ -22,7 +22,7 @@ class tile():
 
     @staticmethod
     def version():
-        return "0.9.5"
+        return "0.9.6-1"
 
     def name_tile(f, str_start="tile"):
         coords = ee.List(f.geometry().bounds().coordinates().get(0))
@@ -46,9 +46,53 @@ class tile():
     def name_chunk(f, str_start="chunk", name_tile_fn=name_tile):
         return name_tile_fn(f, str_start) # basic function does the same thing but with chunk prefix, kept as separete fn to allow for user re-defining
 
-    def net(self, sub_region, collection, band, tile_size_m=50, name_tile_fn=name_tile):
+    @staticmethod
+    def vectoriser(region, projection, tile_size_m, name_fn=None):
+        coords = ee.List(region.bounds().coordinates().get(0))
+        ll = ee.List(coords.get(0))
+        ur = ee.List(coords.get(2))
+
+        lon_min = ee.Number(ll.get(0))
+        lat_min = ee.Number(ll.get(1))
+        lon_max = ee.Number(ur.get(0))
+        lat_max = ee.Number(ur.get(1))
+
+        tile_deg = ee.Number(tile_size_m).divide(111320)  # rough degrees per meter at equator
+
+        x_range = lon_max.subtract(lon_min)
+        y_range = lat_max.subtract(lat_min)
+
+        num_tiles_x = x_range.divide(tile_deg).ceil().toInt()
+        num_tiles_y = y_range.divide(tile_deg).ceil().toInt()
+
+        def make_tile(i, j):
+            i = ee.Number(i)
+            j = ee.Number(j)
+
+            x_min = lon_min.add(i.multiply(tile_deg))
+            y_min = lat_min.add(j.multiply(tile_deg))
+            x_max = x_min.add(tile_deg)
+            y_max = y_min.add(tile_deg)
+
+            geom = ee.Geometry.Polygon([[
+                [x_min, y_min], [x_max, y_min], [x_max, y_max], [x_min, y_max], [x_min, y_min]
+            ]])
+
+            feature = ee.Feature(geom)
+            return name_fn(feature) if name_fn else feature
+
+        tiles = ee.List.sequence(0, num_tiles_x.subtract(1)).map(
+            lambda i: ee.List.sequence(0, num_tiles_y.subtract(1)).map(
+                lambda j: make_tile(i, j)
+            )
+        ).flatten()
+
+        return ee.FeatureCollection(tiles)
+
+
+    def net(self, sub_region, collection, band, tile_size_m=50, name_tile_fn=name_tile, geometryType='polygon', vectoriser=None):
         """
-        Fishnet function: creates a grid of tiles (e.g. 50m x 50m) over sub_region using stable CRS, no forced reprojection.
+            Fishnet function: creates a grid of tiles (e.g. 50m x 50m)
         """
 
         # def get_utm_crs_from_region(region):
@@ -77,9 +121,16 @@ class tile():
             .multiply(1e6).add(px_coords.select("y").divide(tile_px).floor()) \
             .toInt()
 
+        if vectoriser is not None:
+            # alternative vectoriser function to use in case of failed tiles
+            fishnet = vectoriser(sub_region, projection, tile_size_m, name_tile_fn)
+
+            return fishnet
+
         fishnet = tile_ids.reduceToVectors(
             geometry=sub_region,
-            geometryType='polygon',
+            # geometryType='polygon',
+            geometryType=geometryType,
             scale=10,
             # crs=crs,
             bestEffort=True,
@@ -89,6 +140,11 @@ class tile():
         fishnet = fishnet.map(name_tile_fn)
 
         return fishnet
+    
+    def net_failed(self, sub_region, collection, band, tile_size_m=50, name_tile_fn=name_tile):
+        """
+            Fishnet function: creates a grid of tiles (e.g. 50m x 50m), attempts to retile fialed tiles 
+        """
                             
     def create_aligned_tiles(self, 
                              roi, 
@@ -98,6 +154,7 @@ class tile():
                              tile_size_m=50,
                              name_chunk_fn=name_chunk,
                              name_title_fn=name_tile,
+                             flag_allow_estimated_tiles=True,
                              flag_full_tiles_only=True):
         """
             Given a region, projection and chunk size in meters, this function will generate tiles on the given projection. 
@@ -173,6 +230,19 @@ class tile():
                 chunk_tiles = chunk_tiles.filter(ee.Filter.eq('tile_status', 'acceptable'))
 
             fishnet_tiles.append(chunk_tiles)
+
+        if flag_allow_estimated_tiles:
+            # allow estimated tiles, these may not follow the exact projection but are a pure-estimate 
+            # note function is replaceable so if you have a better way to estimate feel free to replace it. 
+            for failed_chunk_polygon in failed_polygons.getInfo()['features']:
+                failed_chunk = ee.Feature(failed_chunk_polygon)
+                estimated_tiles = self.net(failed_chunk.geometry(), collection, band, tile_size_m, name_title_fn, vectoriser=self.vectoriser)
+
+                # tag estimated tiles
+                estimated_tiles = estimated_tiles.map(lambda f: f.set('tile_status', 'estimated'))
+
+                # append estimated tiles to fishnet tiles
+                fishnet_tiles.append(estimated_tiles)
 
         return fishnet_tiles, failed_polygons, chunks
     
