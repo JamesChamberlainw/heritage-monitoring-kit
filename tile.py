@@ -1,5 +1,6 @@
 import ee
 import time
+import math
 
 import sys
 
@@ -22,7 +23,7 @@ class tile():
 
     @staticmethod
     def version():
-        return "0.9.6-1"
+        return "0.9.6-2"
 
     def name_tile(f, str_start="tile"):
         coords = ee.List(f.geometry().bounds().coordinates().get(0))
@@ -113,6 +114,13 @@ class tile():
 
         projection = s2.select(band).projection().atScale(10)
 
+        if vectoriser is not None:
+            # alternative vectoriser function to use in case of failed tiles
+            fishnet = vectoriser(sub_region, projection, tile_size_m, name_tile_fn)
+
+            return fishnet
+        
+        # default behavior
         px_coords = ee.Image.pixelCoordinates(projection)
 
         tile_px = tile_size_m // 10  # for 50m at 10m res, tile is 5x5 px
@@ -129,10 +137,8 @@ class tile():
 
         fishnet = tile_ids.reduceToVectors(
             geometry=sub_region,
-            # geometryType='polygon',
             geometryType=geometryType,
             scale=10,
-            # crs=crs,
             bestEffort=True,
             maxPixels=1e13,
         )
@@ -140,11 +146,6 @@ class tile():
         fishnet = fishnet.map(name_tile_fn)
 
         return fishnet
-    
-    def net_failed(self, sub_region, collection, band, tile_size_m=50, name_tile_fn=name_tile):
-        """
-            Fishnet function: creates a grid of tiles (e.g. 50m x 50m), attempts to retile fialed tiles 
-        """
                             
     def create_aligned_tiles(self, 
                              roi, 
@@ -266,8 +267,6 @@ class tile():
                 attempts: int, number of attempts to re-tile failed chunks (default is 1, meaning no re-tiling)
                 name_tile_fn: function, function to name the tiles (default is name_tile what can be used as an example)
                 name_chunk_fn: function, function to name the chunks (default is name_tile what can be used as an example)       
-
-            Note/TODO: current version attempts has been set to 1, as current version does not support re-tiling.          
         """
        
         if roi is None:
