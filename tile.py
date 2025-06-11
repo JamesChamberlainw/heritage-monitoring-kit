@@ -1,6 +1,7 @@
 import ee
 import time
 import math
+import warnings
 
 import sys
 
@@ -23,7 +24,7 @@ class tile():
 
     @staticmethod
     def version():
-        return "0.9.7-1"
+        return "0.9.5-1"
 
     def name_tile(f, str_start="tile"):
         coords = ee.List(f.geometry().bounds().coordinates().get(0))
@@ -66,6 +67,7 @@ class tile():
         ])
 
         coords = ee.List(region.bounds().coordinates().get(0))
+        # coords = ee.List(region.coordinates().get(0))
 
         ll = ee.List(coords.get(0))
         ur = ee.List(coords.get(2))
@@ -144,22 +146,69 @@ class tile():
 
         return features
 
+    @staticmethod
+    def extract_angle(region):
+        coords = ee.List(region.coordinates().get(0))
 
+
+
+        def to_feature(coord):
+            coord = ee.List(coord)
+            return ee.Feature(None, {
+                'x': coord.get(0),  # longitude
+                'y': coord.get(1),  # latitude
+                'coord': coord
+            })
+
+        fc = ee.FeatureCollection(coords.map(to_feature))
+
+        # Sort by latitude descending (top first), then by longitude ascending (leftmost of top)
+        sorted_fc = fc.sort('x', True).sort('y', True) #.sort('y', False)
+
+        # first two points far left and top left 
+        top_left = ee.List(ee.Feature(sorted_fc.toList(2).get(0)).get('coord'))
+        second = ee.List(ee.Feature(sorted_fc.toList(2).get(1)).get('coord'))
+
+        dx = ee.Number(second.get(0)).subtract(top_left.get(0))  #  Δx  change in longitude 
+        dy = ee.Number(second.get(1)).subtract(top_left.get(1))  #  Δy  change in latitude 
+
+        i = 1
+        _dx = dx
+        _dy = dy
+
+        # TODO: figure this out (currently works mostly just need to ensure it works 100% of the time)
+        while (dx.gt(dy) and dx.divide(dy).lt(1.0)): # issue detected so need to remove point fron list and recall this fn
+
+            # restore 
+            if i > len(sorted_fc.getInfo()['features']):
+                dx = _dx
+                dy = _dy
+                break
+
+            # get next point along the left edge
+            second = ee.List(ee.Feature(sorted_fc.toList(2).get(i+1)).get('coord')) # THRID 
+            dx = ee.Number(second.get(0)).subtract(top_left.get(0))
+            dy = ee.Number(second.get(1)).subtract(top_left.get(1))
+            
+            i += 1 
+
+        angle_rad = dy.atan2(dx)  # NOTE: this gives angle from horizontal axis
+        angle_deg = angle_rad.multiply(180).divide(math.pi)
+
+        debug_points = ee.FeatureCollection([
+            ee.Feature(ee.Geometry.Point(top_left), {'label': 'Top Left'}),
+            ee.Feature(ee.Geometry.Point(second), {'label': 'Second'})
+        ])
+
+        # rotate 90 and ensure within 0-180 range
+        angle_deg = ee.Number(angle_deg).add(90) # .mod(180).multiply(-1)
+
+        return angle_deg, debug_points
 
     def net(self, sub_region, collection, band, tile_size_m=50, name_tile_fn=name_tile, geometryType='polygon', vectoriser=None):
         """
             Fishnet function: creates a grid of tiles (e.g. 50m x 50m)
         """
-
-        # def get_utm_crs_from_region(region):
-        #     centroid = region.centroid(ee.ErrorMargin(1))
-        #     lon = centroid.coordinates().get(0)
-        #     zone = ee.Number(lon).add(180).divide(6).floor().add(1)
-        #     return ee.String('EPSG:').cat(ee.Number(32600).add(zone).int().format())
-
-        # crs = get_utm_crs_from_region(sub_region)
-
-        # sub_region = sub_region.transform(crs, ee.ErrorMargin(10))
 
         s2 = ee.ImageCollection(collection) \
             .filterBounds(sub_region) \
@@ -170,9 +219,15 @@ class tile():
         projection = s2.select(band).projection().atScale(10)
 
         if vectoriser is not None:
-            # alternative vectoriser function to use in case of failed tiles
-            fishnet = vectoriser(sub_region, projection, tile_size_m)
+            # calculate angle of image rotation
+            angle, _ = self.extract_angle(sub_region)
 
+            print(f"Anlge of rotation: {angle.getInfo()} degrees")
+            # alternative vectoriser function to use in case of failed tiles
+            fishnet = vectoriser(sub_region, projection, tile_size_m, rotation_deg=0.4676411359337749)
+
+            # debug
+            # return _ 
             return fishnet
         
         # default behavior
