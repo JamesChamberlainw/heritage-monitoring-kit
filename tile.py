@@ -23,7 +23,7 @@ class tile():
 
     @staticmethod
     def version():
-        return "0.9.6-2"
+        return "0.9.7-1"
 
     def name_tile(f, str_start="tile"):
         coords = ee.List(f.geometry().bounds().coordinates().get(0))
@@ -48,10 +48,29 @@ class tile():
         return name_tile_fn(f, str_start) # basic function does the same thing but with chunk prefix, kept as separete fn to allow for user re-defining
 
     @staticmethod
-    def vectoriser(region, projection, tile_size_m, name_fn=None):
+    def vectoriser(region, projection, tile_size_m, rotation_deg=45.0, name_fn=None):
+        
+        # Rotation center 
+        centroid = region.centroid(ee.ErrorMargin(1))
+        cx = ee.Number(centroid.coordinates().get(0))
+        cy = ee.Number(centroid.coordinates().get(1))
+
+        # Rotation Matrix 
+        angle_rad = ee.Number(rotation_deg).multiply(math.pi / 180)
+        cos_val = angle_rad.cos()
+        sin_val = angle_rad.sin()
+
+        rotation_matrix = ee.Array([
+            [cos_val, sin_val.multiply(-1)],
+            [sin_val, cos_val]
+        ])
+
         coords = ee.List(region.bounds().coordinates().get(0))
+
         ll = ee.List(coords.get(0))
         ur = ee.List(coords.get(2))
+        tl = ee.List(coords.get(1))
+        br = ee.List(coords.get(3))
 
         lon_min = ee.Number(ll.get(0))
         lat_min = ee.Number(ll.get(1))
@@ -92,7 +111,38 @@ class tile():
             )
         ).flatten()
 
-        return ee.FeatureCollection(tiles)
+        features = ee.FeatureCollection(tiles)
+
+        def rotate_feature(feature):
+            geom = feature.geometry()
+            coords = ee.List(geom.coordinates().get(0))  # outer ring only
+
+            def rotate_coord(coord):
+                pt = ee.List(coord)
+                x = ee.Number(pt.get(0)).subtract(cx)
+                y = ee.Number(pt.get(1)).subtract(cy)
+                rotated = rotation_matrix.matrixMultiply(ee.Array([[x], [y]]))
+                new_x = ee.Number(rotated.get([0, 0])).add(cx)
+                new_y = ee.Number(rotated.get([1, 0])).add(cy)
+                return ee.List([new_x, new_y])
+
+            rotated_coords = coords.map(rotate_coord)
+            rotated_geom = ee.Geometry.Polygon([rotated_coords])
+
+            return feature.setGeometry(rotated_geom)
+        
+        features = features.map(rotate_feature)
+
+        # -=-=-=-     DEBUG POINTS      -=-=-=-
+        features = features.merge(ee.FeatureCollection([
+            ee.Feature(ee.Geometry.Point(ur), {'label': 'UR'}),
+            ee.Feature(ee.Geometry.Point(ll), {'label': 'LL'}),
+            ee.Feature(ee.Geometry.Point(tl), {'label': 'TL'}),
+            ee.Feature(ee.Geometry.Point(br), {'label': 'BR'})
+        ]))
+        # -=-=-=-       DEBUG            -=-=-=-
+
+        return features
 
 
 
@@ -121,7 +171,7 @@ class tile():
 
         if vectoriser is not None:
             # alternative vectoriser function to use in case of failed tiles
-            fishnet = vectoriser(sub_region, projection, tile_size_m, name_tile_fn)
+            fishnet = vectoriser(sub_region, projection, tile_size_m)
 
             return fishnet
         
@@ -136,7 +186,7 @@ class tile():
 
         if vectoriser is not None:
             # alternative vectoriser function to use in case of failed tiles
-            fishnet = vectoriser(sub_region, projection, tile_size_m, name_tile_fn)
+            fishnet = vectoriser(sub_region, projection, tile_size_m)
 
             return fishnet
 
