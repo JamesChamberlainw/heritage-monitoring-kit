@@ -392,6 +392,7 @@ class tile():
                              name_title_fn=name_tile,
                              flag_allow_estimated_tiles=True,
                              flag_full_tiles_only=True,
+                             flag_chunks_only=False,
                              flag_full_chunks_only=False):
         """
             Given a region, projection and chunk size in meters, this function will generate tiles on the given projection. 
@@ -453,6 +454,10 @@ class tile():
             
             total_chunks = total_chunks_nwe  # update total chunks to new value
                 
+        if flag_chunks_only:
+            # if flag is set to only return chunks, return chunks and exit
+            print("Returning only chunks without tiling...", flush=True)
+            return chunks, failed_polygons, chunks
 
         for i in range(total_chunks):                                                       # range(chunks.size().getInfo()):
             print(f"Processing chunk {i+1} / {chunks.size().getInfo()} ", flush=True)
@@ -511,6 +516,7 @@ class tile():
                      band="B4",
                      full_tiles_only=False,
                      full_chunks_only=False,
+                     chunks_only=False,
                      name_tile_fn=name_tile):
         """
             Creates a gird of standardised tiles (e.g., 50m x 50m) that are aligned with the projection of the specified band in the given collection. 
@@ -539,6 +545,7 @@ class tile():
             name_title_fn=name_tile_fn,
             flag_allow_estimated_tiles=True,  # keep true 
             flag_full_tiles_only=full_tiles_only,
+            flag_chunks_only=chunks_only,  # if true, only returns chunks with no titles - useful for selecting chunks
             flag_full_chunks_only=full_chunks_only
         )
 
