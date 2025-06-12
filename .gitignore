@@ -6,3 +6,4 @@ whs.xml
 *.prj
 *.shx
 /PlotToSat
+/__pycache__
