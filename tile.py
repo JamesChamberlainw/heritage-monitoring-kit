@@ -1,9 +1,6 @@
 import ee
 import time
 import math
-import warnings
-
-import sys
 
 ee.Authenticate()
 ee.Initialize(project="jameswilliamchamberlain")
@@ -73,8 +70,8 @@ class tile():
 
             Args:
                 geom: ee.Geometry, geometry to translate
-                dx: float, change in x (longitude)  
-                dy: float, change in y (latitude)
+                dx: float, change in x (longitude)  Δx
+                dy: float, change in y (latitude)   Δy
         """
         # Translate the geometry by dx, dy (dx - change in x and dy - change in y)
         translation_coords = ee.List(geom.coordinates().get(0))
@@ -87,17 +84,7 @@ class tile():
 
         # Wrap in outer list to rebuild polygon
         return ee.Geometry.Polygon([shifted_coords])
-
-
-    # @staticmethod
-    # def add_corner_distance(ref_point, corner):
-    #     point = ee.Geometry.Point(corner)
-    #     dist = point.distance(ref_point)
-    #     return ee.Feature(point, {
-    #         'dist': dist,
-    #         'coord': corner
-    #     })
-
+    
 
     def vectoriser(self, region, tile_size_m, rotation_deg=45.0, alignemnt_point=None, name_fn=None):
 
@@ -292,7 +279,6 @@ class tile():
         # if region is provided and (some bad logic that needs ot be fixed - should check if one point is direclty above or below the other)  .abs 
         # likley a good option to remove this in the future as circular logic could be used to avoid this issue if region is provided as a polygon - which it is, so all that needs to be checked is one to the left and one to the right in the order (TODO: figure out how to access that)! 
         while (dx.gt(dy) and dx.divide(dy).lt(1.0)) and sorted_fc is not None: # issue detected so need to remove point fron list and recall this fn
-            print("DEBUG POINT FAILURE OCCURS DUE TO THIS POINT HERE 1")
             # restore 
             if i > len(sorted_fc.getInfo()['features']):
                 dx = _dx
@@ -306,11 +292,11 @@ class tile():
             
             i += 1 
 
-        angle_rad = dy.atan2(dx)  # NOTE: this gives angle from horizontal axis
+        angle_rad = dy.atan2(dx)  # angle from horizontal axis
         angle_deg = angle_rad.multiply(180).divide(math.pi)
 
         if region is not None:
-            # rotate 90 and ensure within 0-180 range
+            # rotate 90 and flip 
             angle_deg = ee.Number(angle_deg).add(90).mod(180).multiply(-1)
         else:
             # already aligned correclty using correct points that are guanteed to be aligned properly 
@@ -319,7 +305,7 @@ class tile():
         # if region is provided, we need to ensure the angle is within 0-180 range
         # angle_deg = ee.Number(angle_deg).add(90).mod(180).multiply(-1)
 
-        return angle_deg # , debug_points
+        return angle_deg 
 
     def net(self, sub_region, collection, band, tile_size_m=50, name_tile_fn=name_tile, geometryType='polygon', vectoriser=None, full_only=False):
         """
