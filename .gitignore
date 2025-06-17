@@ -12,5 +12,5 @@ whs.xml
 PlotToSat.zip 
 !/PlotToSat/pts_runner.py
 !/PlotToSat/pts_samarra.py
-!/PlotToSat/pts_check4useage.py
+!/PlotToSat/pts_check4usage.py
 !/PlotToSat/README.md
