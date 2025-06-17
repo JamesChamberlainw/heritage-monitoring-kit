@@ -5,6 +5,11 @@ whs.xml
 *.shp
 *.prj
 *.shx
+*.pyc
+*.pyo
 /PlotToSat
 /__pycache__
-PlotToSat.zip
+PlotToSat.zip 
+!/PlotToSat/pts_runner.py
+!/PlotToSat/pts_samarra.py
+!/PlotToSat/README.md
