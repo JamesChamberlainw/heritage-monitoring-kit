@@ -55,7 +55,7 @@ def check4usage():
     return False
 
 
-def wait_until_idle(check_interval_s=60, legacy=True):
+def wait_until_idle(check_interval_s=60, legacy=True, logtime=False):
     """
         Waits until there are no active or queued tasks in the Google Earth Engine (GEE) API.
 
@@ -67,6 +67,8 @@ def wait_until_idle(check_interval_s=60, legacy=True):
     """
 
     while check4usage_legacy() if legacy else check4usage():
+        if logtime: 
+            print(f"Waiting for GEE tasks to complete... TIME: {time.strftime('%Y-%m-%d %H:%M:%S')}") 
         time.sleep(check_interval_s)
 
 # TEST CASE 
