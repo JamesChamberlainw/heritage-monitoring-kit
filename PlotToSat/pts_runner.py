@@ -4,6 +4,7 @@
 import ee
 import os
 import papermill as pm
+from pts_check4usage import wait_until_idle
 
 ee.Authenticate()
 ee.Initialize(project="jameswilliamchamberlain")
@@ -51,5 +52,5 @@ for i, asset in enumerate(assets):
             log_output=True
         )
 
-        # wait_until_idle(min_idle_seconds=60) # not needed 
-        print(f"Notebook complete. Log saved to {log_file}")
+        wait_until_idle(900, legacy=True) # 15 min between checks
+        print(f"Notebook complete. Log saved to {log_file}") 
