@@ -3,6 +3,7 @@
 
 import ee
 import os
+import time
 import papermill as pm
 from pts_check4usage import wait_until_idle
 
@@ -53,5 +54,9 @@ for i, asset in enumerate(assets):
             log_output=True
         )
 
-        wait_until_idle(300, legacy=True, logtime=True) # 5 min between checks
+        # expected earliest finish 
+        time.wait(600)
+
+        # remaining wait time 
+        wait_until_idle(150, legacy=True, logtime=True) # 5 min between checks
         print(f"Notebook complete. Log saved to {log_file}") 
