@@ -17,7 +17,8 @@ ee.Initialize(project="jameswilliamchamberlain")
 year_start = 2017
 year_end = 2025
 # Constants (papermill outputs)
-notebook_input = "F:/0-Projects/GEE-UNESCO/COMM514_A_12_202425/PlotToSat/pts_samarra.ipynb"
+# notebook_input = "F:/0-Projects/GEE-UNESCO/COMM514_A_12_202425/PlotToSat/pts_samarra.ipynb" # MAIN PC FILES
+notebook_input = "D:/1_Personal_Projects/COMM514_Diss/PlotToSat/pts_samarra.ipynb" # LAPTOP FILES 
 output_dir = "executed_logs"
 assets_folder = "projects/jameswilliamchamberlain/assets/activechunks_06"   
 # =========================================================================================================================
