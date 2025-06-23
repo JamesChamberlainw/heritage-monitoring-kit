@@ -24,7 +24,6 @@ output_dir = "executed_logs"
 assets_folder = "projects/jameswilliamchamberlain/assets/activechunks_06"   
 # =========================================================================================================================
 index_start = 3     # if your using the same chunk_{index} naming structure else you will need to adjust to your needs!
-year_start = 2019   # if you need to resume from a specific year, else you can set this to the `year_start` or earlier 
 # =========================================================================================================================
 
 
@@ -44,11 +43,7 @@ for i, asset in enumerate(assets):
 
     # Standard behaviour:
     for year in range(year_start, year_end):
-        # Skip if year is below the year_start
-        if year_start > year:
-            print(f"Skipping year {year} as it is below the year start of {year_start}.")
-            continue
-
+        
         log_file = os.path.join(output_dir, f"chunk_{i}_{year}.ipynb")
 
         print(f"Running: {notebook_input} for asset {i}, year {year}. Log File: {log_file}")
