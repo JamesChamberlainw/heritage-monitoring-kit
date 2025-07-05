@@ -5,7 +5,7 @@ University of Exeter: MSc Advanced Computer Science Research Project Repository 
 
 ## Setup 
 
-1. Install PlotToSat files in `\PlotToSat` do not overwrite the additional files listed, use of the two files included can be found within the [README](https://github.com/JamesChamberlainw/COMM514/blob/main/PlotToSat/README.md) file in the directory
+1. Install PlotToSat files in `\PlotToSat` do not overwrite the additional files listed, use of the three files included can be found within the [README](https://github.com/JamesChamberlainw/COMM514/blob/main/PlotToSat/README.md) file in the directory
 
 ## How to Replicate After Project Initilisation 
 
