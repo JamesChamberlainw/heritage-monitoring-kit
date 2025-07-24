@@ -25,3 +25,4 @@ data/2023.csv
 data/2024.csv
 *.tif
 ~$MM514 - Activity Logs.docx
+*.geojson
