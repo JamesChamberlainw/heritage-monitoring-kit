@@ -47,13 +47,14 @@ class Cluster:
 
     sparse_matrix = pd.DataFrame()
 
-    def __init__(self, subregions, df_data, mapping, passes=6, aoi=None, index_column="file_name", points=gpd.GeoDataFrame()):
+    def __init__(self, subregions, df_data, mapping, passes=6, aoi=None, cluster_fn=kmeans_clustering, index_column="file_name", points=gpd.GeoDataFrame()):
         """
             Initialises the cluster object with subregions, data, number of subregion passes, the area of interest (aoi), index column, and points.
         """
 
         # execution variables 
         self.passes = passes 
+        self.cluster_fn = cluster_fn
 
         # Data 
         self.data = df_data
@@ -262,6 +263,19 @@ class Cluster:
             points = gpd.GeoDataFrame.from_features(src, crs=src.crs)
         self.points = points
 
+
+    def load_labels_df(self, df):
+        """Loads labels from a GeoDataFrame file into the cluster object."""
+
+        data = self.data.copy()
+        data = data.reset_index(drop=False)
+        gdf_labels = df
+        gdf_labels = gdf_labels.merge(data, on=self.index_column, how='inner') # ensures re-useabilty of labells on other data 
+        gdf_labels['label'] = gdf_labels['label'].replace({np.NaN: None, "NaN": None, "None": None, None: None})
+        gdf_labels = gdf_labels.set_index(self.index_column) 
+        self.labels = gdf_labels
+
+
     def load_labels(self, filename):
         """Loads labels from a CSV file into the cluster object."""
 
@@ -269,13 +283,9 @@ class Cluster:
             print(f"No labels file found at {filename}. Assuming no labels to load.")
             return
 
-        data = self.data.copy()
-        data = data.reset_index(drop=False)
-        gdf_labels = pd.read_csv(filename)
-        gdf_labels = gdf_labels.merge(data, on=self.index_column, how='inner') # ensures re-useabilty of labells on other data 
-        gdf_labels['label'] = gdf_labels['label'].replace({np.NaN: None, "NaN": None, "None": None})
-        gdf_labels = gdf_labels.set_index(self.index_column) 
-        self.labels = gdf_labels
+        df_labels = pd.read_csv(filename)
+        self.load_labels_df(df_labels)
+    
 
     def load_subregions(self, filename):
         """Loads subregions from a GeoJSON file into the cluster object."""
@@ -625,7 +635,7 @@ class Cluster:
 
         # check for intersections and assign labels
         for _, label_row in labels_gdf.iterrows():
-            print(f"progress: {_}/{len(labels_gdf)} labels processed.")
+            print(f"progress: {_+1}/{len(labels_gdf)} labels processed.")
             label = label_row['label']
             
             # Check each point until assigned or dropped
@@ -707,7 +717,7 @@ class Cluster:
     # ========================================================================== CLUSTERING ======================================================================== #
     ##################################################################################################################################################################
         
-    def fit(self, cluster_fn):
+    def fit(self):
         """
             Fits the clustering model to the data.
             This method should be implemented in subclasses.
@@ -739,7 +749,7 @@ class Cluster:
 
             for i in range(self.passes):
                 # Perform clustering
-                labels, indecies = cluster_fn(subregion_df)
+                labels, indecies = self.cluster_fn(subregion_df)
 
                 col_name = f'cluster_{index_number}'
 
