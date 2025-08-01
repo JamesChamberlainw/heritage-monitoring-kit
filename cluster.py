@@ -31,11 +31,17 @@ import re
 
 def kmeans_clustering(df, k=10):
     """sklearn kmeans"""
+    df_clean = df.copy()
+    print(len(df_clean))
+    print(f"Clustering {len(df_clean)} rows with {k} clusters.")
+    print(df_clean.columns)
+    df_clean = df_clean.dropna()  # May Crash if Empty Cells 
+    print(len(df_clean))
 
     kmeans = KMeans(n_clusters=k, random_state=42) # TODO: make random_state random
-    kmeans.fit(df)
+    kmeans.fit(df_clean)
     
-    return kmeans.labels_, df.index.tolist()
+    return kmeans.labels_, df_clean.index.tolist()
 
 
 class Cluster:
@@ -47,17 +53,24 @@ class Cluster:
 
     sparse_matrix = pd.DataFrame()
 
-    def __init__(self, subregions, df_data, mapping, passes=6, aoi=None, cluster_fn=kmeans_clustering, index_column="file_name", points=gpd.GeoDataFrame()):
+    def __init__(self, subregions, df_data, mapping, passes=6, aoi=None, cluster_fn=kmeans_clustering, index_column="file_name", points=gpd.GeoDataFrame(), supress_warnings=False):
         """
             Initialises the cluster object with subregions, data, number of subregion passes, the area of interest (aoi), index column, and points.
         """
-
         # execution variables 
         self.passes = passes 
         self.cluster_fn = cluster_fn
 
-        # Data 
+        # Data + Ensure correct index 
         self.data = df_data
+        try:
+            self.data = self.data.set_index(index_column)
+        except KeyError:
+            if not supress_warnings:
+                print(f"KeyError: {index_column} not found in DataFrame columns. Assuming default index is correct; this will not affect processing.")
+        except Exception as e:
+            if not supress_warnings:
+                print(f"Error: {e}, this may affect and break processing. Please check your input DataFrame columns and index_column.")
         self.points = points
         self.mapping = mapping
 
@@ -250,7 +263,9 @@ class Cluster:
 
         df_sparse = pd.read_csv(filename)
         df_sparse = df_sparse.set_index(self.index_column)
+        df_sparse = df_sparse.dropna()
         self.sparse_matrix = df_sparse
+
 
     def load_points(self, filename):
         """Loads Points from a GeoJSON file into the cluster object."""
@@ -261,6 +276,7 @@ class Cluster:
 
         with fiona.open(filename) as src:
             points = gpd.GeoDataFrame.from_features(src, crs=src.crs)
+            points = points.dropna()
         self.points = points
 
 
@@ -273,6 +289,7 @@ class Cluster:
         gdf_labels = gdf_labels.merge(data, on=self.index_column, how='inner') # ensures re-useabilty of labells on other data 
         gdf_labels['label'] = gdf_labels['label'].replace({np.NaN: None, "NaN": None, "None": None, None: None})
         gdf_labels = gdf_labels.set_index(self.index_column) 
+        gdf_labels = gdf_labels.dropna()
         self.labels = gdf_labels
 
 
@@ -284,6 +301,7 @@ class Cluster:
             return
 
         df_labels = pd.read_csv(filename)
+        df_labels = df_labels.dropna()
         self.load_labels_df(df_labels)
     
 
@@ -296,7 +314,7 @@ class Cluster:
 
         with fiona.open(filename) as src:
             subregions = gpd.GeoDataFrame.from_features(src, crs=src.crs)
-        self.subregions = subregions
+        self.subregions = subregions.dropna()
 
     def reload_state(self, filname_prefix="temp_test/test2", filename_postfix="_state"):
         """
@@ -745,7 +763,6 @@ class Cluster:
         index_number = 0
 
         for subregion_df in subregions_data:
-            print(f"Clustering {len(subregion_df)} points from subregion.")
 
             for i in range(self.passes):
                 # Perform clustering
