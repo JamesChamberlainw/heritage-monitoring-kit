@@ -592,6 +592,8 @@ class Cluster:
         if '.geo' in df_data.columns:
             predictions = predictions.join(df_data['.geo'])
 
+        self.predictions = predictions
+
         return predictions
 
 
