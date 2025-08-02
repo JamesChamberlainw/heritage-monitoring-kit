@@ -38,7 +38,7 @@ def kmeans_clustering(df, k=10):
     df_clean = df_clean.dropna()  # May Crash if Empty Cells 
     print(len(df_clean))
 
-    kmeans = KMeans(n_clusters=k, random_state=42) # TODO: make random_state random
+    kmeans = KMeans(n_clusters=k) # TODO: make random_state random
     kmeans.fit(df_clean)
     
     return kmeans.labels_, df_clean.index.tolist()
@@ -289,7 +289,6 @@ class Cluster:
         gdf_labels = gdf_labels.merge(data, on=self.index_column, how='inner') # ensures re-useabilty of labells on other data 
         gdf_labels['label'] = gdf_labels['label'].replace({np.NaN: None, "NaN": None, "None": None, None: None})
         gdf_labels = gdf_labels.set_index(self.index_column) 
-        gdf_labels = gdf_labels.dropna()
         self.labels = gdf_labels
 
 
@@ -301,7 +300,6 @@ class Cluster:
             return
 
         df_labels = pd.read_csv(filename)
-        df_labels = df_labels.dropna()
         self.load_labels_df(df_labels)
     
 
