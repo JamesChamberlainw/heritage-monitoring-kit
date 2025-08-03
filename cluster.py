@@ -286,7 +286,7 @@ class Cluster:
         data = self.data.copy()
         data = data.reset_index(drop=False)
         gdf_labels = df
-        gdf_labels = gdf_labels.merge(data, on=self.index_column, how='inner') # ensures re-useabilty of labells on other data 
+        gdf_labels = data.merge(gdf_labels, on=self.index_column, how='inner') # ensures re-useabilty of labells on other data 
         gdf_labels['label'] = gdf_labels['label'].replace({np.NaN: None, "NaN": None, "None": None, None: None})
         gdf_labels = gdf_labels.set_index(self.index_column) 
         self.labels = gdf_labels
@@ -526,7 +526,7 @@ class Cluster:
                 dst.set_band_description(i + 1, band) # Keep band discription!!!
 
 
-    def create_predictions(self):
+    def create_predictions(self, cluster_prefix="cluster_"):
         """
         Converts the sparse DataFrame of multiple cluster label columns to a single-column label prediction
         based on majority voting from known labels.
@@ -551,7 +551,7 @@ class Cluster:
         predictions = pd.Series(index=df_sparse.index, dtype=object)
 
         for col in df_sparse.columns:
-            if not col.startswith("cluster_label_"):
+            if not col.startswith(cluster_prefix):
                 continue
 
             # Get cluster IDs and their associated true labels
@@ -636,20 +636,37 @@ class Cluster:
         # Load in Points and Labels
         if not update:
             labels_gdf = self.points.copy()
-            df_gdf['label'] = None
             # merge with additional labels if provided
+
+        # if update reload old labels 
+        if update and self.labels is not None:
+            df_gdf = self.labels.copy()
+
+        # if there is no labels column, create one
+        if 'label' not in df_gdf.columns:
+            df_gdf['label'] = None
 
         # Prepare additional_labels 
         if additional_labels is not None and not additional_labels.empty:
+            print("Additional labels provided, merging with existing labels.")
             additional_points_copy = additional_labels.copy()
             additional_points_copy = additional_points_copy.to_crs(self.points.crs)
-            labels_gdf = pd.concat([labels_gdf, additional_points_copy], ignore_index=True)
 
+            # update only
+            labels_gdf = pd.concat([labels_gdf, additional_points_copy], ignore_index=True)
+                
             # merges points as these are now additional labels
             self.points = pd.concat([self.points, additional_points_copy], ignore_index=True)
-
+            if not update:
+                labels_gdf = self.points
+                
             # reload already existing labels to ensure they are not lost
-            df_gdf = self.labels.copy()
+            # df_gdf = self.labels.copy()
+
+        # convert df_gdf to GeoDataFrame if not already 
+        if not isinstance(df_gdf, gpd.GeoDataFrame):
+            geometry = df_gdf[".geo"].apply(lambda x: shape(json.loads(x)))
+            df_gdf = gpd.GeoDataFrame(df_gdf, geometry=geometry, crs=self.UTM_ESPG)
 
         # check for intersections and assign labels
         for _, label_row in labels_gdf.iterrows():
@@ -657,8 +674,8 @@ class Cluster:
             label = label_row['label']
             
             # Check each point until assigned or dropped
-            for idx, point in df_gdf.iterrows():
-                if label_row.geometry.intersects(point.geometry):
+            for idx, tile in df_gdf.iterrows():
+                if label_row.geometry.intersects(tile.geometry):
                     df_gdf.at[idx, 'label'] = label
                     break
 
@@ -779,14 +796,12 @@ class Cluster:
                 # Convert to DataFrame for merging
                 temp_grouped = temp_grouped.to_frame()
 
-                print(f"temp columns: {temp_grouped.columns}")
-
                 # Merge with main matrix
                 matrix = matrix.join(temp_grouped, how='outer') if not matrix.empty else temp_grouped
 
                 index_number += 1
-                print(len(matrix.columns), "columns in the matrix after clustering.")
-                print(len(matrix), "rows in the matrix after clustering.")
+                # print(len(matrix.columns), "columns in the matrix after clustering.")
+                # print(len(matrix), "rows in the matrix after clustering.")
 
         matrix = matrix.join(self.data[[".geo"]], how='outer')
         self.sparse_matrix = matrix
