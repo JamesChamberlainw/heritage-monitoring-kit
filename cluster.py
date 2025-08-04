@@ -32,13 +32,9 @@ import re
 def kmeans_clustering(df, k=10):
     """sklearn kmeans"""
     df_clean = df.copy()
-    print(len(df_clean))
-    print(f"Clustering {len(df_clean)} rows with {k} clusters.")
-    print(df_clean.columns)
-    df_clean = df_clean.dropna()  # May Crash if Empty Cells 
-    print(len(df_clean))
+    df_clean = df_clean.dropna()
 
-    kmeans = KMeans(n_clusters=k) # TODO: make random_state random
+    kmeans = KMeans(n_clusters=k)
     kmeans.fit(df_clean)
     
     return kmeans.labels_, df_clean.index.tolist()
