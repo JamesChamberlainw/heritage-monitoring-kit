@@ -263,7 +263,6 @@ class Cluster:
 
         df_sparse = pd.read_csv(filename)
         df_sparse = df_sparse.set_index(self.index_column)
-        df_sparse = df_sparse.dropna()
         self.sparse_matrix = df_sparse
 
 
