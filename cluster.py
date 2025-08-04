@@ -686,66 +686,77 @@ class Cluster:
     # ================================================================ Label Recomendations ======================================================================== #
     ##################################################################################################################################################################
 
-    def create_recommendations(self, filename="/"):
+
+    def cluster_label_proportions(clusters: pd.Series, labels: pd.Series) -> pd.DataFrame:
+        """
+            Takes in a Series of clusters and labels, and returns a summary of their proportions acording to the clusters and labels.
+        """
+
+        # Filter out NaNs 
+        valid = ~(clusters.isna() | labels.isna())
+        clusters = clusters[valid]
+        labels = labels[valid]
+
+        # Create Counts per cluster and associated label
+        counts = pd.crosstab(clusters, labels)
+
+        # Convert to proportions relative to cluster
+        proportions = counts.div(counts.sum(axis=1), axis=0)
+
+        return proportions
+
+
+    def create_recommendations(self, export_filename="recommendation.tif", aim=10, aim_weight=0.25, aim_max_multiplier=10.0, class_proportion_weight=0.75):
         """
             Based on the Points Creates a map of recommendations for labelling the points in the subregions. 
 
-            The higher the value the higher the recommendation to label the point. 
+            This generates a 0.0 to 1.0 recommendation for where the next point should be placed, where 1.0 is the highest recommendation and 0.0 is the lowest recommendation.
+
+            Args:
+                aim (int):                          The total number of classes per tile to minimally aim for.
+                aim_weight (float):                 Weight in final recommendation based on the aim.
+                max_multiplier (float):             Multiplier for the aim weight 
+                class_proportion_weight (float):    Weight in final recommendation based on the label proportions (How the classes are distributed within clusters).
         """
 
-        # resolution (m)
-        res = 50
+        # Data
+        sparse_matrix = self.sparse_matrix.drop(columns=['.geo']).copy()
+        labels_df = self.predictions.drop(columns=['.geo']).copy()
 
-        # labels 
-        labels = self.points.copy()
-        labelled_data = self.labels.copy()
-        data = self.data.copy()
+        # summary of NaNs (TOTAL) and multipler creation 
+        total_nans = sparse_matrix.isna().sum(axis=1)
+        total_non_nans = sparse_matrix.shape[1] - total_nans
+        multipler = np.maximum(total_non_nans, 1.0)
+        multipler = 1- ((aim_max_multiplier -  0) * (1 - (total_non_nans / aim)))/aim
+        multipler = np.where(multipler <= 0.0, 1.0, multipler)
 
-        # # height map from truth labels 
-        # max_height = 100.0
-        # data['distance_value'] = 0.0 # old is 0.0
+        # Review labels within each cluster run and their distribution
+        for col in sparse_matrix.columns:
+            clusters = sparse_matrix[col]
+            labels = labels_df['predicted_label']
 
-        # for _, label_geometry in labels.iterrows():
-        #     print(f"progress: {_}/{len(labels)} labels processed.")
-        #     label = label_geometry['label']
-        #     if pd.isna(label):
-        #         continue
-            
-        #     # Calculate distance map where lowest values are the points closest to the label geometry
-        #     distances = data.geometry.distance(label_geometry.geometry)
-        #     # data['distance_value'] += (max_height - distances) / max_height
-        #     data['distance_value'] += distances / max_height
+            # generate proportions of the clusters and take max percentage
+            proportions = self.cluster_label_proportions(clusters, labels)
+            max_row_proportions = proportions.max(axis=1)
 
-        # # normalise by the number of labels
-        # if len(labels) > 0:
-        #     data['distance_value'] /= len(labels)
+            # replace based on index in max_row_proportions in col
+            sparse_matrix[col] = sparse_matrix[col].replace(max_row_proportions.index, max_row_proportions.values)
+            sparse_matrix[col] = 1 - sparse_matrix[col]
 
-        # # flip vlaues by max to create a recommendation map
-        # data['distance_value'] = max_height - data['distance_value']
+            # sum rows with NaN = 1.0 max possible value
+            sparse_matrix[col] = sparse_matrix[col].fillna(1)
 
-        max_height = 100.0
-        data['distance_value'] = 0.0 
+        # new column for recommendations which sum the rows 'recommendation'
+        sparse_matrix['recommendation'] = sparse_matrix.mean(axis=1)
 
-        for _, label_geometry in labels.iterrows():
-            print(f"progress: {_}/{len(labels)} labels processed.")
+        # apply mulipler and weight the recommendation (CAP TO 1.0)
+        sparse_matrix['recommendation'] = sparse_matrix['recommendation'] * (multipler*aim_weight) + sparse_matrix['recommendation'] * class_proportion_weight
+        sparse_matrix['recommendation'] = np.minimum(sparse_matrix['recommendation'], 1.0) 
+        
+        # reattach geometry
+        sparse_matrix['.geo'] = self.sparse_matrix['.geo']
 
-            distances = data.geometry.distance(label_geometry.geometry) 
-
-            # if distance is greater than 500m away ignore so set to 0 
-            distances[distances > 500] = 0.0
-
-            # normal around the point from 100 to 0.0 at edge
-            data['distance_value'] += (max_height - distances) / max_height
-
-            # take max value when compared between data['distance_value'] and the new value
-            data['distance_value'] = data['distance_value'].combine(data['distance_value'], max)  
-            
-        try:
-            self.export_to_tif(data, bands=['distance_value'], output_dir=self.os_path_chcker(filename, postfix=".tif", NAME_CODE_LIM=8, FLAG_APPEND_POSTFIX=True), res=50, UTM_ESPG=self.UTM_ESPG, EPSG=self.EPSG)
-        except Exception as e:
-            print(f"Error: {e}, \n Could not export recommendations to TIF, Returing DataFrame, so you can try again (This may be filename related!)")
-
-        return data
+        self.export_to_tif(sparse_matrix, bands=['recommendation'], output_dir=export_filename, res=50, UTM_ESPG=cluster.UTM_ESPG, EPSG=cluster.EPSG)
             
     ##################################################################################################################################################################
     # ========================================================================== CLUSTERING ======================================================================== #
