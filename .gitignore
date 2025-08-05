@@ -30,3 +30,4 @@ pts_merge_test3.csv
 pts_merge_test2.csv
 pts_merge_test1.csv
 /scripts
+*.csv
