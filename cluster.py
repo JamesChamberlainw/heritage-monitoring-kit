@@ -682,7 +682,7 @@ class Cluster:
     # ================================================================ Label Recomendations ======================================================================== #
     ##################################################################################################################################################################
 
-
+    @staticmethod
     def cluster_label_proportions(clusters: pd.Series, labels: pd.Series) -> pd.DataFrame:
         """
             Takes in a Series of clusters and labels, and returns a summary of their proportions acording to the clusters and labels.
