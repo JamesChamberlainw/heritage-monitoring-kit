@@ -56,7 +56,7 @@ def merge_csv_files(folder_path, output_file, save=True, flag_overwrite=False, f
     return output_file
 
 
-def merge_csv_files_from_multiple_folders(folder_list, output_file, save=True, flag_overwrite=False, flag_raise_errors=True):
+def merge_csv_files_from_multiple_folders(folder_list, output_file, save=True, flag_overwrite=False, flag_raise_errors=True, flag_mean_nan=False):
     """
     Merges all CSV files from multiple folders into a single CSV file.
 
@@ -75,13 +75,22 @@ def merge_csv_files_from_multiple_folders(folder_list, output_file, save=True, f
 
     df = pd.DataFrame()
 
+    # Collect all CSV files and merge them
     for folder_path in folder_list:
         try:
             df = pd.concat([df, merge_csv_files(folder_path, output_file, save=False, flag_overwrite=flag_overwrite, flag_raise_errors=flag_raise_errors)], ignore_index=True)#
         except Exception as e:
             print(f"Warning: Could not merge files from folder '{folder_path}'. Error: {e}, skipping this folder. This may result in an incomplete merged file.")
 
+    # Overwrite cehck to avoid overwriting existing files
     if flag_overwrite is False and os.path.exists(output_file):
         raise FileExistsError(f"The output file '{output_file}' already exists. Set flag_overwrite=True to overwrite it.")
+    
+    # fill NaN values with the mean of the column if flag_mean_nan is True
+    if flag_mean_nan:
+        for col in df.columns:
+            if df[col].isnull().any():
+                avg = df[col].mean()
+                df[col].fillna(avg, inplace=True)
     
     return df.to_csv(output_file, index=False) if output_file else df
