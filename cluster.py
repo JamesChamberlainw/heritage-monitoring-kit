@@ -605,7 +605,7 @@ class Cluster:
     def update_row_labels(self, labels_gdf, label_row='label'):
         """Simple QoL function to call build_row_labels and be more intuitive."""
 
-        return self.build_row_labels(label_row=label_row, labels_gdf=labels_gdf, update=True)
+        return self.build_row_labels(label_row=label_row, additional_labels=labels_gdf, update=True)
 
 
     def build_row_labels(self, label_row='label', additional_labels=None, update=False):
