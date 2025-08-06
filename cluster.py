@@ -84,6 +84,8 @@ class Cluster:
 
         self.labels = None
         self.sparse_matrix = pd.DataFrame()
+
+        self.predictions = pd.DataFrame()
     
     def clip_dataframe(self, polygon, df):
         """
@@ -752,8 +754,8 @@ class Cluster:
         # reattach geometry
         sparse_matrix['.geo'] = self.sparse_matrix['.geo']
 
-        self.export_to_tif(sparse_matrix, bands=['recommendation'], output_dir=export_filename, res=50, UTM_ESPG=cluster.UTM_ESPG, EPSG=cluster.EPSG)
-            
+        self.export_to_tif(sparse_matrix, bands=['recommendation'], output_dir=export_filename, res=50, UTM_ESPG=self.UTM_ESPG, EPSG=self.EPSG)
+
     ##################################################################################################################################################################
     # ========================================================================== CLUSTERING ======================================================================== #
     ##################################################################################################################################################################
