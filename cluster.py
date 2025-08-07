@@ -558,8 +558,9 @@ class Cluster:
             # Build mapping: cluster_id -> list of known labels
             cluster_to_labels = {}
             for file_name, cluster_id in cluster_ids.items():
-                if file_name in known_labels and pd.notna(known_labels[file_name]):
-                    cluster_to_labels.setdefault(cluster_id, []).append(known_labels[file_name])
+                # if file_name in known_labels and pd.notna(known_labels.loc[file_name]): 
+                if file_name in known_labels.index and file_name in cluster_ids.index and pd.notna(known_labels.loc[file_name]):
+                    cluster_to_labels.setdefault(cluster_id, []).append(known_labels.loc[file_name])
 
             # Compute majority label for each cluster
             cluster_to_majority = {}
@@ -656,9 +657,6 @@ class Cluster:
             self.points = pd.concat([self.points, additional_points_copy], ignore_index=True)
             if not update:
                 labels_gdf = self.points
-                
-            # reload already existing labels to ensure they are not lost
-            # df_gdf = self.labels.copy()
 
         # convert df_gdf to GeoDataFrame if not already 
         if not isinstance(df_gdf, gpd.GeoDataFrame):
@@ -666,15 +664,34 @@ class Cluster:
             df_gdf = gpd.GeoDataFrame(df_gdf, geometry=geometry, crs=self.UTM_ESPG)
 
         # check for intersections and assign labels
-        for _, label_row in labels_gdf.iterrows():
-            print(f"progress: {_+1}/{len(labels_gdf)} labels processed.")
-            label = label_row['label']
+        # for _, label_row in labels_gdf.iterrows():
+        #     print(f"progress: {_+1}/{len(labels_gdf)} labels processed.")
+        #     label = label_row['label']
             
-            # Check each point until assigned or dropped
-            for idx, tile in df_gdf.iterrows():
-                if label_row.geometry.intersects(tile.geometry):
-                    df_gdf.at[idx, 'label'] = label
-                    break
+        #     # Check each point until assigned or dropped
+        #     for idx, tile in df_gdf.iterrows():
+        #         if label_row.geometry.intersects(tile.geometry):
+        #             df_gdf.at[idx, 'label'] = label
+        #             break
+
+        # ^^^^ OLD VERSION VERY SLOW DUE TO LOOP ^^^^
+
+        # split labels into valid options ot add labels
+        valid_labels = labels_gdf[labels_gdf['label'].notna() & (labels_gdf['label'] != None)]
+        if valid_labels.empty:
+            print("No valid labels found in the provided labels GeoDataFrame.")
+            return df_gdf
+
+        tiles = df_gdf[df_gdf['label'].isna()]
+        merged_gdf = gpd.sjoin(tiles, valid_labels[['geometry', 'label']], how='left', predicate='intersects')
+
+        if merged_gdf['label_right'].isna().all():
+            print("Warning: No intersections found between labels and tiles; this will result in empty map generation!")
+            return df_gdf
+
+        mask = merged_gdf['label_right'].notna()
+        df_gdf.loc[merged_gdf.index[mask], 'label'] = merged_gdf.loc[mask, 'label_right']
+        print(f"Labels after assignment: {df_gdf['label'].notna().sum()} total with labels, {df_gdf['label'].isna().sum()} without labels.")
 
         self.labels = df_gdf
 
@@ -724,9 +741,11 @@ class Cluster:
         # summary of NaNs (TOTAL) and multipler creation 
         total_nans = sparse_matrix.isna().sum(axis=1)
         total_non_nans = sparse_matrix.shape[1] - total_nans
-        multipler = np.maximum(total_non_nans, 1.0)
-        multipler = 1- ((aim_max_multiplier -  0) * (1 - (total_non_nans / aim)))/aim
-        multipler = np.where(multipler <= 0.0, 1.0, multipler)
+
+        multiplier = 1.0 + (aim_max_multiplier - 1.0) * np.clip((aim - total_non_nans) / aim, 0.0, 1.0)
+        # multipler = np.maximum(total_non_nans, 1.0)
+        # multipler = 1- ((aim_max_multiplier -  0) * (1 - (total_non_nans / aim)))/aim
+        # multipler = np.where(multipler <= 0.0, 1.0, multipler)
 
         # Review labels within each cluster run and their distribution
         for col in sparse_matrix.columns:
@@ -748,7 +767,8 @@ class Cluster:
         sparse_matrix['recommendation'] = sparse_matrix.mean(axis=1)
 
         # apply mulipler and weight the recommendation (CAP TO 1.0)
-        sparse_matrix['recommendation'] = sparse_matrix['recommendation'] * (multipler*aim_weight) + sparse_matrix['recommendation'] * class_proportion_weight
+        # sparse_matrix['recommendation'] = sparse_matrix['recommendation'] * (multiplier*aim_weight) + sparse_matrix['recommendation'] * class_proportion_weight
+        sparse_matrix['recommendation'] = sparse_matrix['recommendation'] * (multiplier*aim_weight) + sparse_matrix['recommendation'] * class_proportion_weight
         sparse_matrix['recommendation'] = np.minimum(sparse_matrix['recommendation'], 1.0) 
         
         # reattach geometry
@@ -775,7 +795,6 @@ class Cluster:
             df_clipped = self.clip_dataframe(subregion.geometry, self.data)
             df_clipped = df_clipped.dropna()
             df_clipped = df_clipped.drop(columns=["system:index", ".geo"]) # unessusary columns for clustering
-            # df_clipped = df_clipped.set_index("file_name")
             df_clipped = df_clipped.apply(pd.to_numeric, errors='coerce')
 
             if df_clipped.empty:
@@ -794,8 +813,6 @@ class Cluster:
                 labels, indecies = self.cluster_fn(subregion_df)
 
                 col_name = f'cluster_{index_number}'
-
-                # Temporary DataFrame
                 temp_df = pd.DataFrame({col_name: labels, self.index_column: indecies})
 
                 # Group in case of duplicates
