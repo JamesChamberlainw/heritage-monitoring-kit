@@ -29,7 +29,7 @@ from matplotlib import cm
 import re
 
 
-def kmeans_clustering(df, k=10):
+def kmeans_clustering(df, k=15):
     """sklearn kmeans"""
     df_clean = df.copy()
     df_clean = df_clean.dropna()
@@ -691,7 +691,7 @@ class Cluster:
 
         mask = merged_gdf['label_right'].notna()
         df_gdf.loc[merged_gdf.index[mask], 'label'] = merged_gdf.loc[mask, 'label_right']
-        print(f"Labels after assignment: {df_gdf['label'].notna().sum()} total with labels, {df_gdf['label'].isna().sum()} without labels.")
+        print(f"Labels after assignment: {df_gdf['label'].notna().sum()} total with labels, {df_gdf['label'].isna().sum()} tiles without direct labels.")
 
         self.labels = df_gdf
 
@@ -720,7 +720,6 @@ class Cluster:
 
         return proportions
 
-
     def create_recommendations(self, export_filename="recommendation.tif", aim=10, aim_weight=0.25, aim_max_multiplier=10.0, class_proportion_weight=0.75):
         """
             Based on the Points Creates a map of recommendations for labelling the points in the subregions. 
@@ -742,10 +741,8 @@ class Cluster:
         total_nans = sparse_matrix.isna().sum(axis=1)
         total_non_nans = sparse_matrix.shape[1] - total_nans
 
-        multiplier = 1.0 + (aim_max_multiplier - 1.0) * np.clip((aim - total_non_nans) / aim, 0.0, 1.0)
-        # multipler = np.maximum(total_non_nans, 1.0)
-        # multipler = 1- ((aim_max_multiplier -  0) * (1 - (total_non_nans / aim)))/aim
-        # multipler = np.where(multipler <= 0.0, 1.0, multipler)
+        # summary stat for recommendation 
+        recommendation_to_aim = 1.0 + (aim_max_multiplier - 1.0) * np.clip((aim - total_non_nans) / aim, 0.0, 1.0)
 
         # Review labels within each cluster run and their distribution
         for col in sparse_matrix.columns:
@@ -757,24 +754,77 @@ class Cluster:
             max_row_proportions = proportions.max(axis=1)
 
             # replace based on index in max_row_proportions in col
-            sparse_matrix[col] = sparse_matrix[col].replace(max_row_proportions.index, max_row_proportions.values)
-            sparse_matrix[col] = 1 - sparse_matrix[col]
+            sparse_matrix[col] = 1 - sparse_matrix[col].replace(max_row_proportions.index, max_row_proportions.values)
+            # sparse_matrix[col] = 1 - sparse_matrix[col]
 
             # sum rows with NaN = 1.0 max possible value
-            sparse_matrix[col] = sparse_matrix[col].fillna(1)
+            # sparse_matrix[col] = sparse_matrix[col].fillna(0.0)
 
         # new column for recommendations which sum the rows 'recommendation'
         sparse_matrix['recommendation'] = sparse_matrix.mean(axis=1)
 
         # apply mulipler and weight the recommendation (CAP TO 1.0)
         # sparse_matrix['recommendation'] = sparse_matrix['recommendation'] * (multiplier*aim_weight) + sparse_matrix['recommendation'] * class_proportion_weight
-        sparse_matrix['recommendation'] = sparse_matrix['recommendation'] * (multiplier*aim_weight) + sparse_matrix['recommendation'] * class_proportion_weight
+        sparse_matrix['recommendation'] = sparse_matrix['recommendation'] * (recommendation_to_aim * aim_weight) + sparse_matrix['recommendation'] * class_proportion_weight
         sparse_matrix['recommendation'] = np.minimum(sparse_matrix['recommendation'], 1.0) 
         
         # reattach geometry
         sparse_matrix['.geo'] = self.sparse_matrix['.geo']
 
         self.export_to_tif(sparse_matrix, bands=['recommendation'], output_dir=export_filename, res=50, UTM_ESPG=self.UTM_ESPG, EPSG=self.EPSG)
+
+    # def create_recommendations(self, export_filename="recommendation.tif", aim=10, aim_weight=0.25, aim_max_multiplier=10.0, class_proportion_weight=0.75):
+    #     """
+    #         Based on the Points Creates a map of recommendations for labelling the points in the subregions. 
+
+    #         This generates a 0.0 to 1.0 recommendation for where the next point should be placed, where 1.0 is the highest recommendation and 0.0 is the lowest recommendation.
+
+    #         Args:
+    #             aim (int):                          The total number of classes per tile to minimally aim for.
+    #             aim_weight (float):                 Weight in final recommendation based on the aim.
+    #             max_multiplier (float):             Multiplier for the aim weight 
+    #             class_proportion_weight (float):    Weight in final recommendation based on the label proportions (How the classes are distributed within clusters).
+    #     """
+
+    #     # Data
+    #     sparse_matrix = self.sparse_matrix.drop(columns=['.geo']).copy()
+    #     labels_df = self.predictions.drop(columns=['.geo']).copy()
+
+    #     # summary of NaNs (TOTAL) and multipler creation 
+    #     total_nans = sparse_matrix.isna().sum(axis=1)
+    #     total_non_nans = sparse_matrix.shape[1] - total_nans
+
+    #     # summary stat for recommendation 
+    #     recommendation_to_aim = 1.0 + (aim_max_multiplier - 1.0) * np.clip((aim - total_non_nans) / aim, 0.0, 1.0)
+
+    #     # Review labels within each cluster run and their distribution
+    #     for col in sparse_matrix.columns:
+    #         clusters = sparse_matrix[col]
+    #         labels = labels_df['predicted_label']
+
+    #         # generate proportions of the clusters and take max percentage
+    #         proportions = self.cluster_label_proportions(clusters, labels)
+    #         max_row_proportions = proportions.max(axis=1)
+
+    #         # replace based on index in max_row_proportions in col
+    #         sparse_matrix[col] = sparse_matrix[col].replace(max_row_proportions.index, max_row_proportions.values)
+    #         sparse_matrix[col] = 1 - sparse_matrix[col]
+
+    #         # sum rows with NaN = 1.0 max possible value
+    #         sparse_matrix[col] = sparse_matrix[col].fillna(1)
+
+    #     # new column for recommendations which sum the rows 'recommendation'
+    #     sparse_matrix['recommendation'] = sparse_matrix.mean(axis=1)
+
+    #     # apply mulipler and weight the recommendation (CAP TO 1.0)
+    #     # sparse_matrix['recommendation'] = sparse_matrix['recommendation'] * (multiplier*aim_weight) + sparse_matrix['recommendation'] * class_proportion_weight
+    #     sparse_matrix['recommendation'] = sparse_matrix['recommendation'] * (recommendation_to_aim * aim_weight) + sparse_matrix['recommendation'] * class_proportion_weight
+    #     sparse_matrix['recommendation'] = np.minimum(sparse_matrix['recommendation'], 1.0) 
+        
+    #     # reattach geometry
+    #     sparse_matrix['.geo'] = self.sparse_matrix['.geo']
+
+    #     self.export_to_tif(sparse_matrix, bands=['recommendation'], output_dir=export_filename, res=50, UTM_ESPG=self.UTM_ESPG, EPSG=self.EPSG)
 
     ##################################################################################################################################################################
     # ========================================================================== CLUSTERING ======================================================================== #
