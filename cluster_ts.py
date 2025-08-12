@@ -1,6 +1,14 @@
-import cluster as cl
+import os
+import json
+import numpy as np
+import pandas as pd
+import geopandas as gpd
+from shapely.geometry import shape
 
-class ts_cluster():
+import cluster as cl
+from cluster import kmeans_clustering
+
+class cluster_ts():
 
     cluster_list = []
 
@@ -12,10 +20,12 @@ class ts_cluster():
     start_year = 2019
     end_year = 2024
 
-    def __init__(self, ts_point_labels, data_dir, mapping, start_year, end_year, index_column='file_name', passes=6, full_data=True):
+    def __init__(self, ts_point_labels, data_dir, mapping, start_year, end_year, subregions, cluster_class=cl.Cluster, index_column='file_name', passes=6, full_data=True):
         """
             Initializes the ts_cluster object with time-series point labels, data directory, mapping, and number of passes.
         """
+        
+        self.cluster_class = cluster_class
         
         self.start_year = int(start_year)
         self.end_year = int(end_year)
@@ -23,6 +33,7 @@ class ts_cluster():
         self.index_column = index_column
 
         self.data_dir = data_dir
+        self.subregions = subregions
 
         if start_year > end_year:
             raise ValueError("start_year must be less than or equal to end_year")
@@ -120,7 +131,7 @@ class ts_cluster():
         uniuqes_gdf['geometry']  = uniuqes_gdf['.geo'].apply(lambda x: shape(json.loads(x)))
         uniuqes_gdf = gpd.GeoDataFrame(uniuqes_gdf, geometry='geometry', crs="EPSG:4326")
 
-        cl_cluster = cl.Cluster(subregions=subregions, df_data=None, mapping=None, index_column=self.index_column)
+        cl_cluster = cl.Cluster(subregions=self.subregions, df_data=None, mapping=None, index_column=self.index_column)
         cl_cluster.data = uniuqes_gdf.set_index("file_name")
         # cl_cluster.points = common_df.drop(columns=['start_year', 'end_year'])    
         cl_cluster.points = self.common_labels.drop(columns=['start_year', 'end_year'])
@@ -133,7 +144,7 @@ class ts_cluster():
         self.base_labels = pd.DataFrame(base_labels, columns=['file_name', 'label'])
         return self.base_labels
 
-    def instansiate_clusters(self, cluster_class, subregions, aoi=None, index_column="file_name"):
+    def instansiate_clusters(self, cluster_class, aoi=None, index_column="file_name"):
         """
             Instantiates clusters for each year in the data directory.
         """
@@ -144,10 +155,10 @@ class ts_cluster():
 
         for year in range(self.start_year, self.end_year + 1):
             print(f"Instantiating cluster for year {year}...")
-            data = pd.read_csv(self.data_dir.loc[data_dir['year'] == year, 'dir'].values[0])
+            data = pd.read_csv(self.data_dir.loc[self.data_dir['year'] == year, 'dir'].values[0])
 
             # (self, subregions, df_data, mapping, passes=6, aoi=None, index_column="file_name", points=gpd.GeoDataFrame()):
-            cl_cluster = cluster_class(subregions=subregions, 
+            cl_cluster = cluster_class(subregions=self.subregions, 
                                           df_data=data, 
                                           mapping=self.mapping, 
                                           points=self.common_labels,
@@ -223,7 +234,9 @@ class ts_cluster():
             print(f"Building recommendations for cluster {self.start_year + i} with {len(cl_cluster.labels)} tiles.")
 
             # build the recommendations
-            cl_cluster.create_predictions() # MUST be done first else will not work 
+            if cl_cluster.predictions.empty:
+                print("Creating predictions for cluster first...")
+                cl_cluster.create_predictions() # MUST be done first else will not work 
             cl_cluster.create_recommendations(export_filename=f"/{filename_prefix}_{self.start_year + i}_recomendation.tif")
 
 
@@ -233,11 +246,11 @@ class ts_cluster():
         """
         
         for i, cl_cluster in enumerate(self.cluster_list):
-            print(f"Saving state of cluster {i + 2019} with {len(cl_cluster.labels)} labels.")
+            print(f"Saving state of cluster {i + 2019} with {len(cl_cluster.labels)} labels.") # TODO: replace 2019 with self.start_year
             cl_cluster.save_state(filname_prefix=filename_prefix, filename_postfix=f"{self.start_year + i}_state")
 
 
-    def load_states(self, cluster_class=cl.Cluster, filename_prefix="clusters/cluster", aoi=None):
+    def load_states(self, filename_prefix="clusters/cluster", aoi=None):
         """
             Reloads clusters from saved states. 
         """
@@ -246,10 +259,10 @@ class ts_cluster():
 
         for year in range(self.start_year, self.end_year + 1):
             print(f"Instantiating cluster for year {year}...")
-            data = pd.read_csv(self.data_dir.loc[data_dir['year'] == year, 'dir'].values[0])
+            data = pd.read_csv(self.data_dir.loc[self.data_dir['year'] == year, 'dir'].values[0])
 
             # (self, subregions, df_data, mapping, passes=6, aoi=None, index_column="file_name", points=gpd.GeoDataFrame()):
-            cl_cluster = cluster_class(subregions=subregions, 
+            cl_cluster = self.cluster_class(subregions=self.subregions, 
                                             df_data=data, 
                                             mapping=self.mapping, 
                                             points=self.common_labels,
