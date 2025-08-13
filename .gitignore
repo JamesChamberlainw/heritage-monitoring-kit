@@ -34,3 +34,6 @@ pts_merge_test1.csv
 *.json
 *.xml
 *.pptx
+_old/generate_map_final_run.ipynb
+_old/generate_map_test.ipynb
+_old/generate_map_ts_cluster_test.ipynb
