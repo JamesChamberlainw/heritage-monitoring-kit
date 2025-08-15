@@ -323,27 +323,7 @@ class tile():
         projection = s2.select(band).projection().atScale(10)
 
         if vectoriser is not None:
-            # calculate angle of image rotation
-            # angle = 0.0 
-            # ref_point = None
-            # if full_only is False:
-            #     angle = self.extract_angle(sub_region)
-            # else:
-            #     coords = ee.List(sub_region.bounds().coordinates().get(0))
-            #     ll = ee.Geometry.Point(ee.List(coords.get(0))) # lower left (bounds)
-            #     tl = ee.Geometry.Point(ee.List(coords.get(3))) # top left (bounds)
-                
-            #     p1 = self.get_closest_point(sub_region, ll)  # lower left point
-            #     p2 = self.get_closest_point(sub_region, tl)  # top left point
 
-            #     # return p1 p2 as points to view#
-            #     angle = self.extract_angle(p1=p1, p2=p2)  # extract angle from two points
-                
-            #     ref_point = p1  # reference point for vectoriser
-            #     # debug code 
-            #     # print(f"Anlge of rotation: {angle.getInfo()} degrees")
-            #     # return ee.FeatureCollection([ee.Feature(ee.Geometry.Point(p1), {'label': 'p1'}),
-            #     #                             ee.Feature(ee.Geometry.Point(p2), {'label': 'p2'})])
             if full_only is True:
                 print("WARNING: this feature is not implemented fully for `net` using defualt angle calculations for estimations - these are a bit off.")
 
@@ -398,12 +378,12 @@ class tile():
             Given a region, projection and chunk size in meters, this function will generate tiles on the given projection. 
 
             Args:
-                region, ee.Geometry
-                collection, str, Earth Engine image collection (default is "COPERNICUS/S2")
-                band, str, band to use for projection (B4 is a 10m band in S2)
-                chunk_size_m, int, size of the chunks in meters (default is 50*10, what is 500m)
-                tile_size_m, int, size of the tiles in meters (default is 50)
-                name_title_fn, function, function to name the tiles (default is name_tile what can be used as an example)
+                region, (ee.Geometry)
+                collection, (str),          Earth Engine image collection (default is "COPERNICUS/S2")
+                band, (str),                band to use for projection (B4 is a 10m band in S2)
+                chunk_size_m, (int),        size of the chunks in meters (default is 50*10, what is 500m)
+                tile_size_m, (int),         size of the tiles in meters (default is 50)
+                name_title_fn, (function),  function to name the tiles (default is name_tile what can be used as an example)
         """
 
         def classify_tile(tile, expected_area, tolerane=0.1):
