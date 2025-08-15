@@ -147,6 +147,11 @@ class cluster_ts():
     def instansiate_clusters(self, cluster_class, aoi=None, index_column="file_name"):
         """
             Instantiates clusters for each year in the data directory.
+
+            Args:
+                cluster_class (type):           cluster class of the cluster to instantiate.
+                aoi (GeoDataFrame, optional):   The area of interest to use for the cluster. If None, the entire area is used.
+                index_column (str, optional):   The name of the column to use as the index. Default is "file_name".
         """
         
         base_labelles = self.__build_common_labels__()
@@ -246,7 +251,7 @@ class cluster_ts():
         """
         
         for i, cl_cluster in enumerate(self.cluster_list):
-            print(f"Saving state of cluster {i + 2019} with {len(cl_cluster.labels)} labels.") # TODO: replace 2019 with self.start_year
+            print(f"Saving state of cluster {i + self.start_year} with {len(cl_cluster.labels)} labels.")
             cl_cluster.save_state(filname_prefix=filename_prefix, filename_postfix=f"{self.start_year + i}_state")
 
 
@@ -269,7 +274,7 @@ class cluster_ts():
                                             aoi=aoi,
                                             index_column=self.index_column,
                                             passes=self.passes,
-                                            supress_warnings=True) # ONLY warnings that exist at the current time are errors that should only occur outside of this
+                                            supress_warnings=True)
             
             # reload the data from the state files 
             cl_cluster.reload_state(filname_prefix=filename_prefix, filename_postfix=f"{year}_state")
