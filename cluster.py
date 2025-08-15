@@ -1,32 +1,15 @@
 import os
 import json
 import fiona
-import geemap
 import numpy as np
 import pandas as pd
 import geopandas as gpd
-import xml.etree.ElementTree as ET
-
 from collections import Counter
-
 from shapely.geometry import shape
-from shapely.geometry import Point
-
-# Clustering (best for testing** due to speed)
 from sklearn.cluster import KMeans
-
-# tif file creation
 import rasterio
 from rasterio.transform import from_origin
 from rasterio.features import rasterize
-
-# Plotting and Vis 
-import seaborn as sns
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import cm
-
-import re
 
 
 def kmeans_clustering(df, k=15):
@@ -379,12 +362,11 @@ class Cluster:
                 3. (Optional) Appends a postfix to the file name if it does not already end with it.
 
         Args:
-            output_dir (str): The directory path to check.
-            postfix (str, optional): The postfix to append to the file name if it does not already end with it. Default is ".tif".
-            NAME_CODE_LIM (int, optional): The length of the hex code to generate for filename. Default is 8.
-            FLAG_APPEND_POSTFIX (bool, optional): Whether to append the postfix if the file name does not end with it. Default is True.
+            output_dir (str):                       The directory path to check.
+            postfix (str, optional):                The postfix to append to the file name if it does not already end with it. Default is ".tif".
+            NAME_CODE_LIM (int, optional):          The length of the hex code to generate for filename. Default is 8.
+            FLAG_APPEND_POSTFIX (bool, optional):   Whether to append the postfix if the file name does not end with it. Default is True.
         """
-
 
         # path existance check
         if not os.path.exists(os.path.dirname(output_dir)):
@@ -424,15 +406,11 @@ class Cluster:
                 if a band is provideda e.g.m B1 but there are no pre-fix values this data will be assumed to be a single band AS-IS, and will be included in the output just as that band alone. 
 
             Args:
-                df (pd.DataFrame): PlotToSat Style pandas DataFrame containing time-series data or single band data. Must have file_name and `.geo` geometry columns.
-                bands (list): List of band names to include in the output. e.g., ['B1', 'B2', 'B3'] or ['SingleBand', etc.] can be mixed with single band data.
-                output_dir (str): Output file directory for the GeoTIFF.
-                res (int, optional): Resolution of the output raster in meters. Default is 50m.
-                UTM_ESPG (int, optional): EPSG code for the UTM coordinate reference system. Default is 32638.
-                
-
-
-                # EPSG (int, optional): EPSG code for the coordinate reference system.
+                df (pd.DataFrame):          PlotToSat Style pandas DataFrame containing time-series data or single band data. Must have file_name and `.geo` geometry columns.
+                bands (list):               List of band names to include in the output. e.g., ['B1', 'B2', 'B3'] or ['SingleBand', etc.] can be mixed with single band data.
+                output_dir (str):           Output file directory for the GeoTIFF.
+                res (int, optional):        Resolution of the output raster in meters. Default is 50m.
+                UTM_ESPG (int, optional):   EPSG code for the UTM coordinate reference system. Default is 32638.
         """
 
         # Ensure output directory is valid, exists and can be written to.
@@ -442,10 +420,8 @@ class Cluster:
         # Sort the Bands into single and time-series band data. 
         column_heads = df.columns.tolist()
 
-        
         # all available bands in the data
         band_columns = [col for col in column_heads if any(col.endswith(band) for band in bands)]
-
 
         # Acceptable bands to process 
         acceptable_lst = []
@@ -529,9 +505,9 @@ class Cluster:
         based on majority voting from known labels.
 
         Args:
-            df_sparse (pd.DataFrame): DataFrame with 'cluster_label_*' columns and index as file_name.
-            df_data (pd.DataFrame): Original data containing '.geo' and any other metadata.
-            gdf_labelled (GeoDataFrame): GeoDataFrame with true labels and index as file_name.
+            df_sparse (pd.DataFrame):           DataFrame with 'cluster_label_*' columns and index as file_name.
+            df_data (pd.DataFrame):             Original data containing '.geo' and any other metadata.
+            gdf_labelled (GeoDataFrame):        GeoDataFrame with true labels and index as file_name.
 
         Returns:
             pd.DataFrame: DataFrame indexed by file_name, with predicted label (or None if unassignable).
@@ -616,10 +592,10 @@ class Cluster:
         Builds a DataFrame with labelled polygons based on the points in the GeoDataFrame.
 
         Args:
-            df (GeoDataFrame): The GeoDataFrame containing the points.
-            labels (GeoDataFrame): The GeoDataFrame containing the polygons and their labels.
+            df (GeoDataFrame):                          GeoDataFrame containing the points.
+            labels (GeoDataFrame):                      GeoDataFrame containing the polygons and their labels.
             additional_labels (GeoDataFrame, optional): Additional labels to be added, will be merged with the main labels. # MUST BE POINTS # 
-            update (bool, optional): If True, will use additional_labels to update existing set, rather than regenerating from scratch. Defaults to False.
+            update (bool, optional):                    If True, will use additional_labels to update existing set, rather than regenerating from scratch. Defaults to False.
 
         Returns:
             pd.DataFrame: A DataFrame with the labels for each point.
@@ -727,9 +703,10 @@ class Cluster:
             This generates a 0.0 to 1.0 recommendation for where the next point should be placed, where 1.0 is the highest recommendation and 0.0 is the lowest recommendation.
 
             Args:
+                export_filename (str):              The filename to export the recommendation map to.
                 aim (int):                          The total number of classes per tile to minimally aim for.
                 aim_weight (float):                 Weight in final recommendation based on the aim.
-                max_multiplier (float):             Multiplier for the aim weight 
+                aim_max_multiplier (float):         Multiplier for the aim weight 
                 class_proportion_weight (float):    Weight in final recommendation based on the label proportions (How the classes are distributed within clusters).
         """
 
