@@ -6,3 +6,7 @@ TODO: fill in the readme
 
 
 future work will focus on subregions and improving the tiling tool  
+
+# Tiling Tool
+
+This is being fixed and will have its own page soon
